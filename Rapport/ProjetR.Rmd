@@ -1,0 +1,384 @@
+---
+title: |
+  ![](logo.jpg){width=4in}  
+  `r params$doc_title`
+author:  
+  - Yacine Bouhamidi^[M1 SSD UGA, yacine.bouhamidi@gmail.com]
+  - Bastien Gévaudan^[M1 SSD UGA, bastien@mail.com ]
+date: "Dernière complilation le `r format(Sys.time(), '%d %B %Y')`"
+output: 
+  pdf_document:
+    
+    number_sections: true
+    includes:
+      in_header: "preamble.tex.txt"
+
+
+params:
+  doc_title: "Statistique de la première ligue anglaise 2020-2021"
+
+bibliography: "joueur_premiere.bib"
+nocite: '@*'
+---
+<!-- On renomme "Contents" en "Table des matières".-->
+
+\renewcommand*\contentsname{Table des matières.}
+
+<!-- On utilise une couleur rouge pour les liens url afin de les rendre plus visible par rapport au texte..-->
+
+\renewcommand\UrlFont{\color{red}\rmfamily\itshape}
+
+\newpage
+\tableofcontents
+\newpage
+
+
+\section{Introduction}
+
+Ce travail est un projet d'étude du M1 SSD réalisé par \textcolor{blue}{Bastien Gévaudan} et \textcolor{blue}{Yacine Bouhamidi}. Il a été réalisé dans les cadre des cours relatifs au logiciel R, "TP logiciel spécialisé R" et "Outil de présentation et de recherche reproductible". Il est le premier projet que nous avons mené sur R, logiciel que nous avons découvert cette année avec plaisir. Ce rapport a pour but de présenter notre travail dans son dévellopement. 
+
+\section{Problématique}
+
+Le travail que nous avons mené avait pour sujet la première ligue de foot anglaise sur la saison 2020-2021. L'objectif a était à partir de données collectée sur les équipes et les joueurs de cette league, de les exposer au travers d'une application Shiny. 
+
+
+\section{Dévellopement}
+
+Cette partie traite du dévellopement de l'application Shiny qui a représentée le coeur de notre travail. 
+
+\subsection{Ce que l'on voulait faire}
+
+Notre travail s'est découpé en plusieurs parties, le premier mois de travail a permis la découverte et une première prise en main. Par la suite nous sous sommes fixé sur l'étude des données de la ligue anglaise. Ensuite la mise en place de l'application Shiny et des graphique. Enfin la rédaction du présent rapport ainsi que la création d'un diaporama de présentation. 
+
+  
+\subsection{Ce qui a été fait} 
+
+  Ce chapite a pour but de présenter le coeur du travail qui a était mené. 
+  
+  \subsubsection{Packages utilisés}
+  
+  On a importé différentes  packages R qui ont étaient nécessaires afin de réaliser l'application Shiny sur le fichier Rmarkdown nécessaire à la production de ce rapport.La liste des librairies utilisées est disponible dans la bibliographie.\textcolor{blue}{[\ref{Bibliographie}]}.
+
+```{r eval=FALSE}
+  library(shiny)
+  library(shinythemes)
+  library(shinydashboard)
+  library(gdata)
+  library(rintrojs)
+  library(shinyjs)
+  library(dplyr)
+  library(tidyr)
+  library(ggplot2)
+  library(leaflet)
+  library(DT)
+```
+  
+
+  \subsubsection{Origine des données.}
+  
+  Les données sont originaires du site FBREF qui recence des          milliers de données sur les joueurs et équipes de foot du monde     entier(\url{https://fbref.com/fr/comps/9/10728/Stats-2020-2021-Pr   emier-League}). 
+  
+  \subsubsection{Transformation des données}
+
+  On importe les données sur les joueurs du fichier pl.
+  
+```{r}
+  pl<- read.csv2("pl.csv", sep=",")
+  head(pl,n=2)
+``` 
+
+Les données ne sont pas directement exploitable il faut procéder à quelques modifications.  
+  \newline
+  On enlève la deuxième ligne car ceux sont les totres des collones.
+```{r}
+  pl<-pl[-c(1,2),]
+  colnames(pl)<-c("ID","Joueur","Nation","Poste","Equipe","Age","Naissance","MJ","Titulaire","MinutesJouees","MinJ/90","Buts","PDT","ButsSansPenT","PenaltysMarT","PenaltysTen","CJT","CRT","Buts/90","PD/90","ButsSansPen/90","PenaltysMar/90","CJ/90","CR/90","xGT","sPenxGT","xAT","sPenxGT+xAT","xG/90","xA/90","xG+xA/90","sPenxG/90")
+
+```
+  La dernière colonne n'a aucun, il y est seulement inscrit "match". On va donc la suprimer. 
+```{r eval=FALSE}
+  pl<-pl[,-33]
+```
+ On tranforme les caractère "\\" en caractère ":" afin de pouvoir utiliser la focntion separate.
+```{r eval=FALSE}
+  pl$Joueur<-gsub("\\", ":", pl$Joueur, fixed=TRUE)
+  pl<-separate(pl, Joueur, c("Joueur","A enlever"), sep = ":")
+```
+ On enlève la colonne nom en doublon, qu'on avait renommé "A enlever".
+```{r eval=FALSE}
+  pl<-pl[,-3] 
+  pl<-separate(pl, Nation, c("A enlever","Nation"), sep = " ")
+```
+On enlève la collone nation en doublon, qu'on avait également renommé "A enlever".
+```{r eval=FALSE}
+pl<-pl[,-3] 
+  pl$ID<-as.integer(pl$ID)
+```
+  On transforme le types des valeurs des colonnes souhaitées en     integer au lieu de character.
+```{r eval=FALSE}
+ for (i in 1:13){
+    pl[,i+5]<-as.integer(pl[,i+5])
+  }
+```
+On transforme ensuite le type des valeurs de certaines collones en double.
+```{r eval=FALSE} 
+for (i in 19:32){
+    pl[,i]<-as.double(pl[,i])
+  }
+```
+   Enfin on importe les données du fichier Stadium, qui nous renseigne sur la position des stades des clubs de première league. On transforme le type des valeurs des coordonnées en numeric. 
+```{r eval=FALSE}
+  stade <- read.csv2("Stadium.csv", sep=",")
+  stade[,2]<-as.numeric(stade[,2])
+  stade[,3]<-as.numeric(stade[,3])
+```
+   
+  
+  \subsubsection{Présentation des données}
+  
+  Le résultat des transformations est donc que l'on obtient des données sous la forme suivante.
+  
+```{r}
+head(pl,n=3)
+```
+
+  
+  \subsubsection{Application Shiny}
+  
+  Une application Shiny est divisée en deux partie. Une partie UI qui va prendre en charge la gestion de l'interface utilisateur et une partie SERVER qui gère le fonctionnement de l'application. 
+   \paragraph{La partie UI}
+    Au sein de la partie UI on a  défini une fonction request dans laquelle on a inscrit les instructions suivantes. 
+    \newline
+      dashboardPage nous permet de structurer l'allure générale de notre application en définissant les principaux élénets. Ici le dashboardHeader (Entête du tableau de bord), dont le titre est "Première League", la sidebar (barre latérale) ainsi que le body. 
+```{r, eval=FALSE}
+dashboardPage(
+      dashboardHeader(title = "Première League"),
+      sidebar,
+      body
+    )
+```
+    Les caractéristiques de ces différents éléments sont décrits dans les extraits de code suivant.
+    \newline
+    Ici on a définit la barre latérale, les différents catégorie que l'on va retrouver dans sur cette barre, c'est  à dire Accueil, Stade, Effectif, Graphiques. Pour chaque catégorie on définie un tabName qui sera nécessaire comme référence dans le code du body. On définit également un icone pour chaque catégorie. De plus la catégorie graphique comporte deux sous catégorie, Graphique 1 et Graphique 2.
+    
+```{r,eval=FALSE}
+sidebar<-dashboardSidebar(
+    hr(),
+    sidebarMenu(id="tabs",
+                menuItem("Accueil", tabName = "acc", icon=icon("home"), selected=TRUE),
+                menuItem("Stade", tabName="st", icon=icon("map")),
+                menuItem("Effectif", tabName="eff", icon=icon("users")),
+                menuItem("Graphiques", icon=icon("chart-line"),
+                         menuSubItem("Graphique 1", tabName = "g1"),
+                         menuSubItem("Graphiques 2", tabName = "g2"))
+    ))
+```
+    
+  Dans l'élément body on va traiter de ce qui est afficher sur l'écran principal de l'application.
+  \newline
+  Ici nous avons le code de la section effectif. Avec la possibilité d'afficher les joueurs des différentes équipes en sélectionnant une équipe garce à selecInput. De rechercher un joueur précis grace à une barre de recherche grace à dataTableOutput.
+  
+```{r,eval=FALSE}
+tabItems(tabItem(tabName = "eff",
+                      fluidPage(
+                          h1("Effectif par équipe", style="font-family:monospace;text-align:center" ),
+                           selectInput("inclub","Selectionnez un club", choices= sort(pl$Equipe)),
+                           dataTableOutput("playerdata")
+                         ))
+```
+  Ici nous avons la partie accueille. Avec les codes de mise en page. Ce permet d'afficher le logo de la première league, d'inscruster la vidéo de présentation de cette première league à partir d'un lien youtube. Des notes de bas de pages sont également ajoutées grace à "p(em(...))", qui permettent d'informer sur les créateurs de l'application ainsi que sur l'origine des données présentées.
+
+```{r, eval = FALSE, fig.align="left",out.width='20%',collapse = TRUE}
+ tabItem(tabName = "acc",
+fluidPage( fluidRow(column(12,align="center", h1("Première League saison 2020-2021", style="font-family:monospace" ))),
+  fluidRow(column(12, align="center", tags$img(src="pl.png",width="500px",height="200px", align ="center"))), 
+                                 
+                                   
+  br(),
+  p(texte),
+  br(),
+                                   
+   fluidRow(column(12, align= "center",HTML('<iframe width="560" height="315"   src="https://www.youtube.com/embed/59LP0ofNT5I" frameborder="0" allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>'))),
+                                  
+    br(),
+    p("texte", 
+    br() , strong("Stade"), "qui regroupe une map avec tous les stades de la league" ,
+    br(), strong("Effectif"),"qui regroupe les effectifs de chaque équipe",
+    br(), strong("Graphiques"), "oÃ¹ on peut retrouver 2 plots interactifs",
+    style="text-align;color:black;background-color:lavender;padding:15p;border-radius=20px"),
+    br(),
+    p(em("Application R shiny développée par :"),"Bouhamidi Yacine et Gévaudan   Bastien",style="text-align:center"),
+    p(em("La base de données sur les ont été trouvé sur ce "),
+    a(href="https://fbref.com/fr/comps/9/10728/Stats-2020-2021-Premier-League", "site",target="_blank"),style="text-align:center;color:black")
+
+     ))
+```
+
+Cette partie du code permet de coder l'onglet stade. On a précisé un titre "Map des stades". On a affiché la liste des clubs ainsi que qu'une map indiquant la position de chaque stade de première ligue.
+
+```{r, eval = FALSE}
+ tabItem(tabName = "st",
+                       fluidPage(
+                         h1("Map des stades", style="font-family:monospace;text-align:center"),
+                         leafletOutput("mymap"),
+                         dataTableOutput("stade")
+                       ))
+```
+  
+Cette partie du code permet de programmer  l'onglet du graphique numéro 1. On affiche un graphique des buts marqués en fonction des matchs joués. 
+
+```{r, eval = FALSE}
+tabItem(tabName = "g1",
+                       fluidPage(
+                          h1("Graphique numéro 1", style="font-family:monospace;text-align:center"),
+                          box(solidHeader= TRUE,
+                          plotOutput("plot1")),
+                          box(title="Inputs",statuts="info",solidHeader = TRUE,
+                          numericInput('x', 'Nombre de matchs joués', 3, min = 0, max = 38),
+                          numericInput('y', 'Nombre de buts', 3, min = 0, max = 38))
+                          )
+                        
+                       )
+```
+Cette partie du code permet de programmer l'onglet du graphique numéro 2. On a ici deux graphiques qui affichent, respectivement, 
+```{r, eval=FALSE}
+ tabItem(tabName = "g2",
+fluidPage(h1("Graphiques numéro 2", style="font-family:monospace;text-align:center"),
+p("Légende : MJ = matchs joués, PDT=Passes décisives",
+                                   style="text-align:center;color:black;background-color:lavender;padding:15px;border-radius:20px"),
+  box(title =  "Graphique général", status="primary", solidHeader = TRUE,
+  selectInput("xcol", "Selectionnez le x du graphique", choices = c("MJ","Titulaire", "MinutesJouees")),
+  selectInput("ycol", "Selectionnez le y du graphique", choices = c("Buts", "PDT", "ButsSansPenT")),
+  p(strong("Graphique du x en fonction du y avec toutes les équipes "),style="text-align:center"),
+  br(),
+  plotOutput("plot2", click = "plot2_click"),
+  p("Cliquez sur un point, voici le (ou les) joueur(s) représenté(s) par ce point :", style="text-align:justify"),
+  verbatimTextOutput("click_info")),
+  box(title="Graphique selon l'équipe", status="primary", solidHeader = TRUE,height = "700px",
+  tabBox(height = "250px", width="450",
+  tabPanel("Nuage de points",p(strong("Graphique du x en fonction du y en fonction d'une équipe choisie "),style="text-align:center"),
+  br(),
+  selectInput("inclub2","Selectionnez un club", choices= sort(pl$Equipe), selected= (pl$Equipe=="Arsenal")),
+  plotOutput("plot3")),
+  tabPanel("Boxplot",p(strong("Boxplot de la variable x en fonction de l'équipe choisie"), style="text-align:center"),
+           plotOutput("plot4"))))
+                         
+                         
+                       )
+```
+
+
+   \paragraph{La partie server}
+     L'autre partie de l'application est la partie serveur qui va se charger de gérer le fonctionnement de l'application, notamment les réactions aux interactions de l'utilisateur.\newline
+     
+   La fonction renderDataTable va nous permettre d'extraire les informations désirées de la base de données que l'on a traité.
+     Ici on va sélectionner les données relatives aux nom des joeurs, à leurs postes, au nombre de matchs joué ainsi que les performances par temps de jeux. 
+     
+```{r eval=FALSE}
+output$playerdata <- renderDataTable({
+    subset(pl, pl$Equipe == input$inclub, select=c("Joueur","Poste", "MJ", "Buts","PDT")) 
+    
+  })
+```
+Ici ceux sont les informations relatives aux stades qui sont extraites. 
+```{r eval=FALSE}
+  
+  output$stade <- renderDataTable(
+    stade %>%
+      datatable(editable="row")
+  )
+```
+     
+```{r eval=FALSE}
+  sd1 <- reactive({
+    pl[, c(input$x, input$y)]
+  })
+  
+  sd2 <- reactive({
+    pl[, c(input$xcol, input$ycol, "Equipe")]
+  })
+  
+  sd3 <- reactive({
+    pl2<-pl[, c(input$xcol, input$ycol)]
+    pl2<- subset(pl2, pl$Equipe == input$inclub2)
+  })
+```
+Les output suivant permettent le rendu des différents graphiques que nous avons déjà traité dans la partie UI. 
+```{r eval=FALSE}
+output$plot1 <- renderPlot({
+    ggplot(pl, aes(x=MJ, y=Buts))+
+      geom_point()+
+      geom_point(aes(x=input$x,y=input$y), colour="blue")+
+      labs(x="Matchs Joués", y="Buts marqués")
+  })
+```
+    
+```{r eval=FALSE}
+output$plot2 <-  renderPlot({
+    ggplot(sd2(),aes_string(x=input$xcol, y=input$ycol))+
+      geom_point(aes(color=Equipe))
+  })
+```
+
+```{r eval=FALSE}
+output$plot3<- renderPlot({
+    ggplot(sd3(),aes_string(x=input$xcol, y=input$ycol))+
+      geom_point()})
+```
+
+```{r  eval=FALSE}
+ output$plot4<- renderPlot({ggplot(sd3(), aes(x=input$inclub2)) + 
+    geom_boxplot(aes_string(y=input$xcol))+
+    labs(x="Equipe choisie")})
+```
+
+Enfin l'output de la carte des clubs. 
+
+```{r eval=FALSE}
+ output$mymap <- renderLeaflet({
+    leaflet() %>%
+      addTiles() %>%
+      addMarkers(data = stade, ~Longitude, ~Latitude, popup = paste0("<b> Equipe : </b>"
+                                                                     , stade$Equipe
+                                                                     , "<br>"
+                                                                     ,"<b> Stade : </b>"
+                                                                     , stade$Stade
+                                                                     ) )
+  
+    
+  })
+```
+\subsubsection{Mise en ligne de l'application}
+
+L'application a était réunie dans un seul fichier App.R qui a était placée dans un dépot git.
+
+```{r eval=FALSE}
+library(shiny)
+runGitHub(repo= "appshiny" , username="bastiengev", ref="main")
+```
+Le code de l'application peut être retrouver à l'adresse suivante
+\url{https://fbref.com/fr/comps/9/10728/Stats-2020-2021-Pr   emier-League}.
+
+
+\newpage
+  \subsection{Ce que l'on voudrait faire à l'avenir}
+  
+  Nous avions des projets plus larges de dévellopement de cette application Shiny. Cependant les limitations en termes de maitrise de l'outil et du manque de temps nous ont empecher de réaliser l'ensemble du projet initial. 
+  
+  On pourrait poursuivre le dévellopement d'une telle aplication. 
+  La partie sur les graphiques pourraient être améliorée. D'une part avec des graphiques plus complet, mais également en dévellopant l'aspect intéractif de ces graphiques. La map des stades pourrait également être améliorer, en affichant les logos des clubs et des données relatives à ces clubs directement dessus. Ici encore l'interactivité pourrait être dévelloper.
+  
+  L'aspect étude des données pourrait également être appronfondie, cependant l'enjeu du cours n'étant pas l'étude des données nous avons préférée nous concentrer sur l'acquisition des savoirs faire relatif à la création d'aplication.
+  
+ Une telle présentation des données pourrait évidement se généraliser aux autres ligues d'Europes (voir du monde) et également prendre en compte les compétitions internationnales. La mise en place d'une aplication traitant de l'ensemble des ligues d'Europe ainsi que des compétitions internationalles, poserait des problèmes supplémentaires de présentation claire des données et de cohérence générale de l'interface. 
+
+\newpage
+\section{Bibliographie}\label{Bibliographie}
+
+Pour réaliser ce travail, nous nous sommes appuyé sur les ouvrages suivants:
+
+<div id="refs"></div>
+
+
+
+

@@ -1,5 +1,7 @@
+install.packages(c("shinythemes", "shinydashboard","dplyr","tidyr", "stringr", "leaflet",  "DT" ))
+
 library(shiny)
 
 runGitHub(repo= "appshiny" , username="bastiengev", ref="main")
 
-#https://github.com/bastiengev/appshiny pour retrouver le code r en détail ainsi que le dossier data et l'image utilisé)
+#https://github.com/bastiengev/appshiny pour retrouver le code r en dÃ©tail ainsi que le dossier data et l'image utilisÃ©)
